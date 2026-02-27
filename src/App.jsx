@@ -8,13 +8,14 @@ const uid = () => Math.random().toString(36).slice(2, 9);
    Roles: Admin > Manager > Developer / Designer / Marketing / QA > Viewer
    ─────────────────────────────────────────────────────────── */
 const ROLE_PERMISSIONS = {
-  Admin:     { createTask:true,  editAnyTask:true,  deleteAnyTask:true,  manageTeam:true,  manageProjects:true,  changeRoles:true  },
-  Manager:   { createTask:true,  editAnyTask:true,  deleteAnyTask:true,  manageTeam:true,  manageProjects:true,  changeRoles:false },
-  Developer: { createTask:true,  editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false },
-  Designer:  { createTask:true,  editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false },
-  Marketing: { createTask:true,  editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false },
-  QA:        { createTask:true,  editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false },
-  Viewer:    { createTask:false, editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false },
+  //                        createTask editAnyTask deleteAnyTask manageTeam manageProjects changeRoles viewAll
+  Admin:     { createTask:true,  editAnyTask:true,  deleteAnyTask:true,  manageTeam:true,  manageProjects:true,  changeRoles:true,  viewAll:true  },
+  Manager:   { createTask:true,  editAnyTask:true,  deleteAnyTask:true,  manageTeam:true,  manageProjects:true,  changeRoles:false, viewAll:true  },
+  Developer: { createTask:true,  editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false, viewAll:false },
+  Designer:  { createTask:true,  editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false, viewAll:false },
+  Marketing: { createTask:true,  editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false, viewAll:false },
+  QA:        { createTask:true,  editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false, viewAll:false },
+  Viewer:    { createTask:false, editAnyTask:false, deleteAnyTask:false, manageTeam:false, manageProjects:false, changeRoles:false, viewAll:false },
 };
 
 const perm        = (user, key) => (ROLE_PERMISSIONS[user?.role] || ROLE_PERMISSIONS.Viewer)[key] === true;
@@ -33,11 +34,11 @@ const ROLE_BADGE = {
 
 /* ══════════════════════ SEED DATA ══════════════════════ */
 const DEMO_USERS = [
-  { id:"u1", name:"Alex Morgan",  email:"alex@unfoldcro.com",   password:"admin123", role:"Admin",     avatar:"AM", color:"#1A1A1A" },
-  { id:"u2", name:"Priya Sharma", email:"priya@unfoldcro.com",  password:"pass",     role:"Developer", avatar:"PS", color:"#2D8C3C" },
-  { id:"u3", name:"Jordan Lee",   email:"jordan@unfoldcro.com", password:"pass",     role:"Designer",  avatar:"JL", color:"#6B4CE6" },
-  { id:"u4", name:"Sam Wilson",   email:"sam@unfoldcro.com",    password:"pass",     role:"Marketing", avatar:"SW", color:"#E6651A" },
-  { id:"u5", name:"Casey Park",   email:"casey@unfoldcro.com",  password:"pass",     role:"Developer", avatar:"CP", color:"#1A7FE6" },
+  { id:"u1", name:"Alex Morgan",  email:"alex@unfoldcro.com",   password:"Admin@123",  role:"Admin",     avatar:"AM", color:"#1A1A1A" },
+  { id:"u2", name:"Priya Sharma", email:"priya@unfoldcro.com",  password:"Priya@456",  role:"Developer", avatar:"PS", color:"#2D8C3C" },
+  { id:"u3", name:"Jordan Lee",   email:"jordan@unfoldcro.com", password:"Jordan@789", role:"Designer",  avatar:"JL", color:"#6B4CE6" },
+  { id:"u4", name:"Sam Wilson",   email:"sam@unfoldcro.com",    password:"Sam@321",    role:"Marketing", avatar:"SW", color:"#E6651A" },
+  { id:"u5", name:"Casey Park",   email:"casey@unfoldcro.com",  password:"Casey@654",  role:"Developer", avatar:"CP", color:"#1A7FE6" },
 ];
 
 const DEMO_PROJECTS = [
@@ -232,10 +233,13 @@ function Login({ team, onLogin }) {
           </div>
 
           <div style={css.credBox}>
-            <span style={css.credLabel}>DEMO LOGINS</span>
+            <span style={css.credLabel}>ALL DEMO LOGINS</span>
             <code style={css.credCode}>
-              alex@unfoldcro.com / admin123 — Admin<br />
-              priya@unfoldcro.com / pass — Developer
+              alex@unfoldcro.com &nbsp;/ Admin@123 &nbsp;— Admin (sees everything)<br />
+              priya@unfoldcro.com / Priya@456 &nbsp;— Developer<br />
+              jordan@unfoldcro.com / Jordan@789 — Designer<br />
+              sam@unfoldcro.com &nbsp;/ Sam@321 &nbsp;&nbsp;— Marketing<br />
+              casey@unfoldcro.com &nbsp;/ Casey@654 &nbsp;— Developer
             </code>
           </div>
         </div>
@@ -269,14 +273,19 @@ function Login({ team, onLogin }) {
 
 /* ════════════════════════ DASHBOARD ════════════════════════ */
 function Dashboard({ tasks, team, user, projects }) {
+  const isAdmin = perm(user, "viewAll");
+  // Scope: Admins/Managers see all; others see only their assigned tasks & member projects
+  const myTasks    = isAdmin ? tasks    : tasks.filter(t => t.assignee===user.id || t.createdBy===user.id);
+  const myProjects = isAdmin ? projects : projects.filter(p => p.members.includes(user.id));
+
   const cards = [
-    { label:"Total Tasks", val:tasks.length,                                      color:"#1A1A1A" },
-    { label:"To Do",       val:tasks.filter(t=>t.status==="todo").length,         color:"#666"    },
-    { label:"In Progress", val:tasks.filter(t=>t.status==="in-progress").length,  color:"#C48A00" },
-    { label:"Completed",   val:tasks.filter(t=>t.status==="done").length,         color:"#2D8C3C" },
+    { label:"Total Tasks", val:myTasks.length,                                       color:"#1A1A1A" },
+    { label:"To Do",       val:myTasks.filter(t=>t.status==="todo").length,          color:"#666"    },
+    { label:"In Progress", val:myTasks.filter(t=>t.status==="in-progress").length,   color:"#C48A00" },
+    { label:"Completed",   val:myTasks.filter(t=>t.status==="done").length,          color:"#2D8C3C" },
   ];
-  const pct = tasks.length ? Math.round((tasks.filter(t=>t.status==="done").length/tasks.length)*100) : 0;
-  const activeProjects = projects.filter(p=>p.status==="active").length;
+  const pct = myTasks.length ? Math.round((myTasks.filter(t=>t.status==="done").length/myTasks.length)*100) : 0;
+  const activeProjects = myProjects.filter(p=>p.status==="active").length;
 
   return (
     <div className="anim-up" style={css.page}>
@@ -301,7 +310,7 @@ function Dashboard({ tasks, team, user, projects }) {
           <div style={{ ...css.progFill, width:`${pct}%` }} />
         </div>
         <div style={{ display:"flex", justifyContent:"space-between", marginTop:10, fontSize:12, color:"#AAA" }}>
-          <span>{tasks.filter(t=>t.status==="done").length} of {tasks.length} tasks complete</span>
+          <span>{myTasks.filter(t=>t.status==="done").length} of {myTasks.length} tasks complete</span>
           <span>{100-pct}% remaining</span>
         </div>
       </div>
@@ -319,8 +328,8 @@ function Dashboard({ tasks, team, user, projects }) {
       {/* Active projects summary */}
       <h2 style={css.secTitle}>Active Projects</h2>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:14, marginBottom:40 }}>
-        {projects.filter(p=>p.status==="active").map((p,i) => {
-          const pt   = tasks.filter(t=>t.project===p.id);
+        {myProjects.filter(p=>p.status==="active").map((p,i) => {
+          const pt   = myTasks.filter(t=>t.project===p.id);
           const done = pt.filter(t=>t.status==="done").length;
           const pp   = pt.length ? Math.round((done/pt.length)*100) : 0;
           return (
@@ -378,6 +387,8 @@ function Dashboard({ tasks, team, user, projects }) {
 
 /* ════════════════════════ TASKS ════════════════════════ */
 function Tasks({ tasks, setTasks, team, user, setModal, projects, fMember, setFMember, fStatus, setFStatus, fProject, setFProject }) {
+  const isAdmin = perm(user, "viewAll");
+
   const cycle = (id, task) => {
     if (!canEditTask(user, task)) return;
     const order = ["todo","in-progress","done"];
@@ -388,7 +399,12 @@ function Tasks({ tasks, setTasks, team, user, setModal, projects, fMember, setFM
     setTasks(p => p.filter(t => t.id!==id));
   };
 
-  const filtered = tasks.filter(t =>
+  // Scope: Admins/Managers see all tasks; others see only tasks assigned to them or created by them
+  const scopedTasks = isAdmin ? tasks : tasks.filter(t => t.assignee===user.id || t.createdBy===user.id);
+  // Scope: projects filter list also narrows to user's projects for non-admins
+  const scopedProjects = isAdmin ? projects : projects.filter(p => p.members.includes(user.id));
+
+  const filtered = scopedTasks.filter(t =>
     (fMember==="all"  || t.assignee===fMember) &&
     (fStatus==="all"  || t.status===fStatus)   &&
     (fProject==="all" || t.project===fProject)
@@ -406,22 +422,33 @@ function Tasks({ tasks, setTasks, team, user, setModal, projects, fMember, setFM
         )}
       </div>
 
+      {/* Scope notice for non-admin */}
+      {!isAdmin && (
+        <div style={{ ...css.infoBanner, marginBottom:16 }}>
+          <span>👁</span>
+          <span>Showing only tasks <b>assigned to you</b> or <b>created by you</b>.</span>
+        </div>
+      )}
+
       {/* Filters */}
       <div style={css.filterBar}>
         <div style={css.fGroup}>
           <span style={css.fLabel}>Project</span>
           <select value={fProject} onChange={e=>setFProject(e.target.value)} style={css.fSelect}>
             <option value="all">All Projects</option>
-            {projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+            {scopedProjects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </div>
-        <div style={css.fGroup}>
-          <span style={css.fLabel}>Member</span>
-          <select value={fMember} onChange={e=>setFMember(e.target.value)} style={css.fSelect}>
-            <option value="all">All Members</option>
-            {team.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        </div>
+        {/* Member filter only visible to Admin / Manager */}
+        {isAdmin && (
+          <div style={css.fGroup}>
+            <span style={css.fLabel}>Member</span>
+            <select value={fMember} onChange={e=>setFMember(e.target.value)} style={css.fSelect}>
+              <option value="all">All Members</option>
+              {team.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+        )}
         <div style={css.fGroup}>
           <span style={css.fLabel}>Status</span>
           <select value={fStatus} onChange={e=>setFStatus(e.target.value)} style={css.fSelect}>
@@ -504,6 +531,10 @@ function Tasks({ tasks, setTasks, team, user, setModal, projects, fMember, setFM
 
 /* ════════════════════════ PROJECTS ════════════════════════ */
 function Projects({ projects, setProjects, tasks, team, user, setModal }) {
+  const isAdmin = perm(user, "viewAll");
+  // Scope: Admins/Managers see all; others see only projects they are a member of
+  const myProjects = isAdmin ? projects : projects.filter(p => p.members.includes(user.id));
+
   const del = (id) => {
     if (!perm(user,"manageProjects")) return;
     setProjects(p=>p.filter(pr=>pr.id!==id));
@@ -515,7 +546,7 @@ function Projects({ projects, setProjects, tasks, team, user, setModal }) {
         <div>
           <h1 style={css.pgTitle}>Projects</h1>
           <p style={css.pgSub}>
-            {projects.length} project{projects.length!==1&&"s"} · {[...new Set(projects.map(p=>p.client))].length} clients
+            {myProjects.length} project{myProjects.length!==1&&"s"} · {[...new Set(myProjects.map(p=>p.client))].length} clients
           </p>
         </div>
         {perm(user,"manageProjects") && (
@@ -523,15 +554,15 @@ function Projects({ projects, setProjects, tasks, team, user, setModal }) {
         )}
       </div>
 
-      {!perm(user,"manageProjects") && (
+      {!isAdmin && (
         <div style={css.infoBanner}>
-          <span>ℹ</span>
-          <span>You have <b>{user.role}</b> access. Contact an Admin or Manager to create or delete projects.</span>
+          <span>👁</span>
+          <span>Showing only projects <b>you are a member of</b>. Contact an Admin or Manager for full access.</span>
         </div>
       )}
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))", gap:16 }}>
-        {projects.map((p,i) => {
+        {myProjects.map((p,i) => {
           const pt      = tasks.filter(t=>t.project===p.id);
           const done    = pt.filter(t=>t.status==="done").length;
           const inprog  = pt.filter(t=>t.status==="in-progress").length;
@@ -638,6 +669,7 @@ function Team({ team, setTeam, tasks, user, setModal }) {
               {/* Permission capabilities */}
               <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid #F5F5F5", display:"flex", flexWrap:"wrap", gap:6 }}>
                 {[
+                  { key:"viewAll",        label:"View All"        },
                   { key:"createTask",     label:"Create Tasks"    },
                   { key:"editAnyTask",    label:"Edit Any Task"   },
                   { key:"manageTeam",     label:"Manage Team"     },
@@ -765,11 +797,12 @@ function Modal({ modal, close, tasks, setTasks, team, setTeam, user, projects, s
             <div style={{ marginTop:14, background:"#F7F7F7", borderRadius:8, padding:"12px 14px" }}>
               <div style={{ fontSize:11, fontWeight:700, color:"#AAA", letterSpacing:"0.08em", marginBottom:8, textTransform:"uppercase" }}>Role permissions</div>
               {[
-                { key:"createTask",     label:"Create tasks"     },
-                { key:"editAnyTask",    label:"Edit any task"    },
-                { key:"deleteAnyTask",  label:"Delete any task"  },
-                { key:"manageTeam",     label:"Manage team"      },
-                { key:"manageProjects", label:"Manage projects"  },
+                { key:"viewAll",        label:"View all tasks & projects" },
+                { key:"createTask",     label:"Create tasks"              },
+                { key:"editAnyTask",    label:"Edit any task"             },
+                { key:"deleteAnyTask",  label:"Delete any task"           },
+                { key:"manageTeam",     label:"Manage team"               },
+                { key:"manageProjects", label:"Manage projects"           },
               ].map(({ key, label }) => {
                 const has = (ROLE_PERMISSIONS[mRole]||ROLE_PERMISSIONS.Viewer)[key];
                 return (
