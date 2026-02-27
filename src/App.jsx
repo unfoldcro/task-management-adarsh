@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
@@ -78,18 +78,44 @@ const PROJ_STATUS_CFG = {
 
 /* ══════════════════════ APP ROOT ══════════════════════ */
 export default function App() {
-  const [user,     setUser]     = useState(null);
-  const [view,     setView]     = useState("login");
-  const [team,     setTeam]     = useState(DEMO_USERS);
-  const [tasks,    setTasks]    = useState(DEMO_TASKS);
-  const [projects, setProjects] = useState(DEMO_PROJECTS);
-  const [modal,    setModal]    = useState(null);
-  const [fMember,  setFMember]  = useState("all");
-  const [fStatus,  setFStatus]  = useState("all");
-  const [fProject, setFProject] = useState("all");
-  const [collapsed,setCollapsed]= useState(false);
+  const [user,          setUser]          = useState(null);
+  const [view,          setView]          = useState("dashboard");
+  const [team,          setTeam]          = useState(DEMO_USERS);
+  const [tasks,         setTasks]         = useState(DEMO_TASKS);
+  const [projects,      setProjects]      = useState(DEMO_PROJECTS);
+  const [modal,         setModal]         = useState(null);
+  const [fMember,       setFMember]       = useState("all");
+  const [fStatus,       setFStatus]       = useState("all");
+  const [fProject,      setFProject]      = useState("all");
+  const [collapsed,     setCollapsed]     = useState(false);
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
 
-  if (!user) return <Login team={team} onLogin={(u) => { setUser(u); setView("dashboard"); }} />;
+  // ── Restore session from localStorage on first mount ──
+  useEffect(() => {
+    const savedId = localStorage.getItem("uc_user_id");
+    if (savedId) {
+      const found = DEMO_USERS.find(u => u.id === savedId);
+      if (found) { setUser(found); }
+    }
+  }, []);
+
+  const handleLogin = (u) => {
+    localStorage.setItem("uc_user_id", u.id);
+    setUser(u);
+    setView("dashboard");
+    setLogoutConfirm(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("uc_user_id");
+    setUser(null);
+    setView("dashboard");
+    setLogoutConfirm(false);
+    // Reset filters
+    setFMember("all"); setFStatus("all"); setFProject("all");
+  };
+
+  if (!user) return <Login team={team} onLogin={handleLogin} />;
 
   const navItems = [
     { key:"dashboard", label:"DASHBOARD", ico:"⬡" },
@@ -146,14 +172,26 @@ export default function App() {
               </div>
             )}
           </div>
-          <button
-            onClick={() => { setUser(null); setView("login"); }}
-            className="side-btn"
-            style={{ ...css.sideBtn, color:"#DC2626", justifyContent: collapsed ? "center" : "flex-start", padding: collapsed ? "11px 0" : "11px 18px" }}
-          >
-            <span style={{ fontSize:14, width:24, textAlign:"center" }}>⏻</span>
-            {!collapsed && <span style={{ fontSize:12 }}>SIGN OUT</span>}
-          </button>
+
+          {/* Logout — with inline confirmation */}
+          {logoutConfirm && !collapsed ? (
+            <div style={{ padding:"8px 10px", background:"#FEF2F2", borderRadius:8, margin:"0 4px 4px" }}>
+              <div style={{ fontSize:12, color:"#DC2626", fontWeight:600, marginBottom:8, textAlign:"center" }}>Sign out?</div>
+              <div style={{ display:"flex", gap:6 }}>
+                <button onClick={handleLogout} style={{ flex:1, padding:"6px 0", borderRadius:6, border:"none", background:"#DC2626", color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"var(--body)" }}>Yes</button>
+                <button onClick={() => setLogoutConfirm(false)} style={{ flex:1, padding:"6px 0", borderRadius:6, border:"1px solid #EBEBEB", background:"#fff", color:"#999", fontSize:12, cursor:"pointer", fontFamily:"var(--body)" }}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => collapsed ? handleLogout() : setLogoutConfirm(true)}
+              className="side-btn"
+              style={{ ...css.sideBtn, color:"#DC2626", justifyContent: collapsed ? "center" : "flex-start", padding: collapsed ? "11px 0" : "11px 18px" }}
+            >
+              <span style={{ fontSize:14, width:24, textAlign:"center" }}>⏻</span>
+              {!collapsed && <span style={{ fontSize:12 }}>SIGN OUT</span>}
+            </button>
+          )}
         </div>
       </div>
 
@@ -187,28 +225,37 @@ export default function App() {
 
 /* ════════════════════════ LOGIN ════════════════════════ */
 function Login({ team, onLogin }) {
-  const [email,   setEmail]   = useState("alex@unfoldcro.com");
-  const [pass,    setPass]    = useState("admin123");
-  const [err,     setErr]     = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email,    setEmail]    = useState("");
+  const [pass,     setPass]     = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [err,      setErr]      = useState("");
+  const [loading,  setLoading]  = useState(false);
 
   const go = () => {
+    if (!email.trim() || !pass.trim()) { setErr("Please enter your email and password."); return; }
     setErr(""); setLoading(true);
     setTimeout(() => {
-      const u = team.find((m) => m.email === email && m.password === pass);
-      if (u) onLogin(u); else setErr("Invalid email or password.");
+      const u = team.find((m) => m.email.toLowerCase() === email.trim().toLowerCase() && m.password === pass);
+      if (u) onLogin(u); else setErr("Invalid email or password. Check the credentials below.");
       setLoading(false);
-    }, 500);
+    }, 600);
+  };
+
+  // Quick-fill from a user card click
+  const quickFill = (m) => {
+    setEmail(m.email);
+    setPass(m.password);
+    setErr("");
   };
 
   return (
     <div style={css.loginWrap}>
       <style>{GCSS}</style>
 
-      {/* Left panel */}
+      {/* ── Left panel ── */}
       <div style={css.loginLeft}>
         <div style={css.loginLeftInner}>
-          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:56 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:48 }}>
             <div style={css.logoMark}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <path d="M13 3L4 14h7l-2 7 9-11h-7l2-7z" fill="#1A1A1A" />
@@ -232,21 +279,45 @@ function Login({ team, onLogin }) {
             ))}
           </div>
 
-          <div style={css.credBox}>
-            <span style={css.credLabel}>ALL DEMO LOGINS</span>
-            <code style={css.credCode}>
-              alex@unfoldcro.com &nbsp;/ Admin@123 &nbsp;— Admin (sees everything)<br />
-              priya@unfoldcro.com / Priya@456 &nbsp;— Developer<br />
-              jordan@unfoldcro.com / Jordan@789 — Designer<br />
-              sam@unfoldcro.com &nbsp;/ Sam@321 &nbsp;&nbsp;— Marketing<br />
-              casey@unfoldcro.com &nbsp;/ Casey@654 &nbsp;— Developer
-            </code>
+          {/* Quick-login user cards */}
+          <div style={{ marginTop:36 }}>
+            <span style={{ ...css.credLabel, display:"block", marginBottom:12 }}>QUICK SIGN IN — CLICK A USER</span>
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {team.map(m => {
+                const rb = ROLE_BADGE[m.role] || ROLE_BADGE.Viewer;
+                const active = email === m.email;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => quickFill(m)}
+                    style={{
+                      display:"flex", alignItems:"center", gap:12,
+                      padding:"10px 14px", borderRadius:10,
+                      border:`1.5px solid ${active ? m.color : "#EBEBEB"}`,
+                      background: active ? `${m.color}0D` : "#fff",
+                      cursor:"pointer", textAlign:"left", transition:"all 0.15s",
+                      fontFamily:"var(--body)",
+                    }}
+                  >
+                    <div style={{ ...css.av40, background:m.color, color:"#fff", flexShrink:0 }}>{m.avatar}</div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:"#1A1A1A" }}>{m.name}</div>
+                      <div style={{ fontSize:11, color:"#AAA", marginTop:2 }}>{m.email}</div>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:4 }}>
+                      <span style={{ fontSize:10, color:rb.fg, background:rb.bg, padding:"2px 8px", borderRadius:4, fontWeight:700 }}>{m.role}</span>
+                      {active && <span style={{ fontSize:10, color:m.color, fontWeight:600 }}>✓ selected</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
         <div style={css.dotPattern} />
       </div>
 
-      {/* Right panel */}
+      {/* ── Right panel ── */}
       <div style={css.loginRight}>
         <div className="anim-up" style={css.loginCard}>
           <h2 style={css.cardH2}>Welcome back</h2>
@@ -255,16 +326,54 @@ function Login({ team, onLogin }) {
           {err && <div style={css.errBox}>{err}</div>}
 
           <label style={css.lbl}>EMAIL ADDRESS</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key==="Enter" && go()} placeholder="you@unfoldcro.com" style={css.inp} />
+          <input
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setErr(""); }}
+            onKeyDown={(e) => e.key==="Enter" && go()}
+            placeholder="you@unfoldcro.com"
+            style={css.inp}
+            autoComplete="username"
+          />
 
           <label style={{ ...css.lbl, marginTop:18 }}>PASSWORD</label>
-          <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} onKeyDown={(e) => e.key==="Enter" && go()} placeholder="••••••••" style={css.inp} />
+          <div style={{ position:"relative" }}>
+            <input
+              type={showPass ? "text" : "password"}
+              value={pass}
+              onChange={(e) => { setPass(e.target.value); setErr(""); }}
+              onKeyDown={(e) => e.key==="Enter" && go()}
+              placeholder="••••••••"
+              style={{ ...css.inp, paddingRight:44 }}
+              autoComplete="current-password"
+            />
+            <button
+              onClick={() => setShowPass(s => !s)}
+              style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:16, color:"#AAA", padding:2 }}
+              tabIndex={-1}
+              title={showPass ? "Hide password" : "Show password"}
+            >
+              {showPass ? "🙈" : "👁"}
+            </button>
+          </div>
 
-          <button onClick={go} disabled={loading} className="login-btn" style={css.loginBtn}>
-            {loading ? "Signing in..." : "SIGN IN"}
+          <button onClick={go} disabled={loading} className="login-btn" style={{ ...css.loginBtn, opacity: loading ? 0.7 : 1 }}>
+            {loading ? "Signing in…" : "SIGN IN →"}
           </button>
 
-          <p style={css.loginHint}>Each team member logs in with their own credentials.</p>
+          <p style={css.loginHint}>
+            Click a user card on the left to auto-fill credentials, then press Sign In.
+          </p>
+
+          {/* Credentials reference table */}
+          <div style={{ marginTop:24, background:"#F7F7F7", border:"1px solid #EBEBEB", borderRadius:10, padding:"14px 16px" }}>
+            <div style={{ fontSize:10, fontWeight:700, color:"#1A1A1A", textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:10 }}>ALL CREDENTIALS</div>
+            {team.map(m => (
+              <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11, color:"#666", marginBottom:6 }}>
+                <span style={{ color:"#AAA" }}>{m.email}</span>
+                <span style={{ fontFamily:"var(--mono)", color:"#1A1A1A", fontWeight:600 }}>{m.password}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
